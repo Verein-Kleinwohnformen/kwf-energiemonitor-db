@@ -29,8 +29,13 @@ module.exports = function(RED) {
 
         // Create table if it doesn't exist
         db.run(`CREATE TABLE IF NOT EXISTS buffer_data (
-            timestamp INTEGER PRIMARY KEY,
-            temperature REAL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER NOT NULL,
+            temp_out REAL,
+            temp_in REAL,
+            hum_in REAL,
+            hum_out REAL,
+            co2 REAL,
             sentToDB INTEGER DEFAULT 0
         );`, (err) => {
             if (err) {
@@ -58,49 +63,49 @@ module.exports = function(RED) {
         }
 
         // Read data from SQLite where sentToDB = 0 (not yet sent to API)
-function readDatabase() {
-    db.all(`SELECT * FROM buffer_data WHERE sentToDB = 0`, [], async (err, rows) => {
-        if (err) {
-            node.error('Error reading from database:', err);
-            return;
-        }
-
-        if (rows.length > 0) {
-            // Aggregate all rows into a single object/array to send to API
-            const dataToSend = rows.map(row => ({
-                timestamp: row.timestamp,
-                temperature: row.temperature
-            }));
-
-            // Split data into smaller chunks if there are more than MAX_ROWS
-            const chunks = [];
-            for (let i = 0; i < dataToSend.length; i += 1000) {
-                chunks.push(dataToSend.slice(i, i + 1000));
-            }
-
-            // Send each chunk to the API
-            for (let chunk of chunks) {
-                const success = await sendToAPI(chunk);
-
-                if (success) {
-                    // Update sentToDB to 1 (sent) for all rows in the batch
-                    const timestamps = chunk.map(item => item.timestamp);
-                    db.run(`UPDATE buffer_data SET sentToDB = 1 WHERE timestamp IN (${timestamps.join(',')})`, function(err) {
-                        if (err) {
-                            node.error('Error updating sentToDB:', err);
-                        }
-                    });
-                } else {
-                    node.error('Error sending data to API');
+        function readDatabase() {
+            db.all(`SELECT * FROM buffer_data WHERE sentToDB = 0`, [], async (err, rows) => {
+                if (err) {
+                    node.error('Error reading from database:', err);
+                    return;
                 }
-            }
-        }
-    });
+
+                if (rows.length > 0) {
+                    // Aggregate all rows into a single object/array to send to API
+                    const dataToSend = rows.map(row => ({
+                        timestamp: row.timestamp,
+                        temperature: row.temperature
+                    }));
+
+                    // Split data into smaller chunks if there are more than MAX_ROWS
+                    const chunks = [];
+                    for (let i = 0; i < dataToSend.length; i += 1000) {
+                        chunks.push(dataToSend.slice(i, i + 1000));
+                    }
+
+                    // Send each chunk to the API
+                    for (let chunk of chunks) {
+                        const success = await sendToAPI(chunk);
+
+                        if (success) {
+                            // Update sentToDB to 1 (sent) for all rows in the batch
+                            const timestamps = chunk.map(item => item.timestamp);
+                            db.run(`UPDATE buffer_data SET sentToDB = 1 WHERE timestamp IN (${timestamps.join(',')})`, function(err) {
+                                if (err) {
+                                    node.error('Error updating sentToDB:', err);
+                                }
+                            });
+                        } else {
+                            node.error('Error sending data to API');
+                        }
+                    }
+                }
+            });
 }
 
         // Write data to SQLite database
         function writeDatabase(data) {
-            const { timestamp, temperature } = data;
+            const { timestamp, temp_out, temp_in, hum_in, hum_out, co2 } = data;
 
             db.get(`SELECT * FROM buffer_data WHERE timestamp = ?`, [timestamp], (err, row) => {
                 if (err) {
@@ -110,27 +115,39 @@ function readDatabase() {
 
                 if (row) {
                     // Update existing record
-                    db.run(`UPDATE buffer_data SET temperature = ? WHERE timestamp = ?`, [temperature, timestamp], (err) => {
-                        if (err) {
-                            node.error('Error updating database:', err);
-                        }
-                    });
+                    db.run(`UPDATE buffer_data SET 
+                                temp_out = ?, 
+                                temp_in = ?, 
+                                hum_in = ?, 
+                                hum_out = ?, 
+                                co2 = ? 
+                            WHERE timestamp = ?`, 
+                            [temp_out, temp_in, hum_in, hum_out, co2, timestamp], 
+                            (err) => {
+                                if (err) {
+                                    node.error('Error updating database:', err);
+                                }
+                            });
                 } else {
                     // Insert new record
-                    db.run(`INSERT INTO buffer_data (timestamp, temperature) VALUES (?, ?)`, [timestamp, temperature], (err) => {
-                        if (err) {
-                            node.error('Error inserting into database:', err);
-                        }
-                    });
+                    db.run(`INSERT INTO buffer_data (timestamp, temp_out, temp_in, hum_in, hum_out, co2) 
+                            VALUES (?, ?, ?, ?, ?, ?)`, 
+                            [timestamp, temp_out, temp_in, hum_in, hum_out, co2], 
+                            (err) => {
+                                if (err) {
+                                    node.error('Error inserting into database:', err);
+                                }
+                            });
                 }
             });
         }
 
+
         // Parse incoming data and add timestamp
-        function parseData(data, field) {
+        function parseData(data, topic, fieldName) {
             // Add timestamp and parse field data
             const timestampedData = {
-                [field]: data[field],
+                [topic]: data[fieldName],
                 timestamp: Math.floor(Date.now() / 1000)  // Current Unix timestamp (seconds)
             };
             writeDatabase(timestampedData);
@@ -162,7 +179,7 @@ function readDatabase() {
             }
 
             // Parse and save incoming data to buffer
-            parseData(msg.payload, fieldName);
+            parseData(msg.payload, msg.topic, fieldName);
 
             if (done) { done(); }
         });
