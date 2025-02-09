@@ -158,5 +158,5 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("kwf-emon", KWFEnergieMonitor);
+    RED.nodes.registerType("kwf-energiemonitor", KWFEnergieMonitor);
 };
