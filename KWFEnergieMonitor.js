@@ -58,35 +58,45 @@ module.exports = function(RED) {
         }
 
         // Read data from SQLite where sentToDB = 0 (not yet sent to API)
-        function readDatabase() {
-            db.all(`SELECT * FROM buffer_data WHERE sentToDB = 0`, [], async (err, rows) => {
-                if (err) {
-                    node.error('Error reading from database:', err);
-                    return;
-                }
-
-                if (rows.length > 0) {
-                    // Aggregate all rows into a single object/array to send to API
-                    const dataToSend = rows.map(row => ({
-                        timestamp: row.timestamp,
-                        temperature: row.temperature
-                    }));
-
-                    // Send the aggregated data
-                    const success = await sendToAPI(dataToSend);
-
-                    if (success) {
-                        // Update sentToDB to 1 (sent) for all rows in the batch
-                        const timestamps = rows.map(row => row.timestamp);
-                        db.run(`UPDATE buffer_data SET sentToDB = 1 WHERE timestamp IN (${timestamps.join(',')})`, function(err) {
-                            if (err) {
-                                node.error('Error updating sentToDB:', err);
-                            }
-                        });
-                    }
-                }
-            });
+function readDatabase() {
+    db.all(`SELECT * FROM buffer_data WHERE sentToDB = 0`, [], async (err, rows) => {
+        if (err) {
+            node.error('Error reading from database:', err);
+            return;
         }
+
+        if (rows.length > 0) {
+            // Aggregate all rows into a single object/array to send to API
+            const dataToSend = rows.map(row => ({
+                timestamp: row.timestamp,
+                temperature: row.temperature
+            }));
+
+            // Split data into smaller chunks if there are more than MAX_ROWS
+            const chunks = [];
+            for (let i = 0; i < dataToSend.length; i += 1000) {
+                chunks.push(dataToSend.slice(i, i + 1000));
+            }
+
+            // Send each chunk to the API
+            for (let chunk of chunks) {
+                const success = await sendToAPI(chunk);
+
+                if (success) {
+                    // Update sentToDB to 1 (sent) for all rows in the batch
+                    const timestamps = chunk.map(item => item.timestamp);
+                    db.run(`UPDATE buffer_data SET sentToDB = 1 WHERE timestamp IN (${timestamps.join(',')})`, function(err) {
+                        if (err) {
+                            node.error('Error updating sentToDB:', err);
+                        }
+                    });
+                } else {
+                    node.error('Error sending data to API');
+                }
+            }
+        }
+    });
+}
 
         // Write data to SQLite database
         function writeDatabase(data) {
