@@ -129,7 +129,7 @@ module.exports = function(RED) {
         // Set up the timer for sending the buffer every hour
         setInterval(() => {
             readDatabase();  // Read and send buffer data every hour
-        }, 3600000);  // 1 hour in milliseconds
+        }, 20000);  // 3600000 1 hour in milliseconds
 
         node.on('input', function(msg, send, done) {
             if (!msg.topic || !msg.payload) {
