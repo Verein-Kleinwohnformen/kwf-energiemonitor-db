@@ -4,8 +4,7 @@
     "description"  : "Energy monitor connector to the KWF databases",
     "dependencies": {
     "sqlite3": "^5.1.7",
-    "axios": "^1.7.9",
-    "path": "0.12.7"
+    "axios": "^1.7.9"
     },
     "engines": {
     "node": ">=14.0.0"
