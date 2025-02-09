@@ -5,8 +5,7 @@
     "dependencies": {
     "sqlite3": "^5.1.7",
     "axios": "^1.7.9",
-    "path": "0.12.7",
-    "fs": "1.0.6"
+    "path": "0.12.7"
     },
     "engines": {
     "node": ">=14.0.0"
