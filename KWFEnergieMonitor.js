@@ -46,7 +46,7 @@ module.exports = function(RED) {
                 const response = await axios.post('https://europe-west6-energiemonitor-kwf.cloudfunctions.net/telemetry-api', data, {
                     headers: { 
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`  // Add API key to request header
+                        'KWF-Device-Key': apiKey  // Add API key to request header
                     }
                 });
                 node.log(`API Response: ${response.status} - ${response.statusText}`);
