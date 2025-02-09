@@ -3,7 +3,7 @@
 ### Installation
 Im Moment kann dieser Node nur über Github installiert werden. Direkt in Balena (node-red Terminal) in den folgenden Ordner gehen und von Git installieren: 
 ```
-cd ../../data/node-red/user/node_modules/
+cd ../../../data/node-red/user/node_modules/
 npm install https://github.com/Verein-Kleinwohnformen/kwf-energiemonitor-db.git
 ```
 
