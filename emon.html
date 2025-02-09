@@ -1,0 +1,27 @@
+<script type="text/javascript">
+    RED.nodes.registerType('kwf-emon', {
+        category: 'function',
+        color: '#8abb3d',
+        defaults: {
+            name: { value: 'KWF Datenbank' },
+            sqlitePath: { value: '/data/node-red/buffer.db' },
+            apiKey: { value: '' }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: 'kwf.png',
+        label: function () {
+            return this.name || 'KWFEnergieMonitor';
+        }
+    });
+</script>
+
+<div class="form-row">
+    <label for="node-input-sqlitePath"><i class="fa fa-folder"></i> SQLite Path</label>
+    <input type="text" id="node-input-sqlitePath" placeholder="Enter path for persistant data storage" required>
+</div>
+
+<div class="form-row">
+    <label for="node-input-apiKey"><i class="fa fa-key"></i> API Key</label>
+    <input type="text" id="node-input-apiKey" placeholder="Enter API Key" required>
+</div>
