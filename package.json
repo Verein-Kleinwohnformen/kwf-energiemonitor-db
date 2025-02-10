@@ -1,6 +1,6 @@
 {
     "name": "@vereinkleinwohnformen/node-red-energiemonitor",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Energy monitor connector to the KWF databases",
     "dependencies": {
         "sqlite3": "^5.1.7",
@@ -17,7 +17,9 @@
     ],
     "author": "Micha Burger / Verein Kleinwohnformen",
     "homepage": "https://github.com/Verein-Kleinwohnformen/kwf-energiemonitor-db/blob/main/README.md",
-    "bugs": {"url": "https://github.com/Verein-Kleinwohnformen/kwf-energiemonitor-db/issues"},
+    "bugs": {
+        "url": "https://github.com/Verein-Kleinwohnformen/kwf-energiemonitor-db/issues"
+    },
     "license": "Apache-2.0",
     "node-red": {
         "version": ">=2.0.0",
