@@ -9,8 +9,9 @@ module.exports = function(RED) {
         var node = this;
 
         // Retrieve configuration options
-        const dbPath = config.sqlitePath || '/data/node-red/buffer.db';  // Default if not set
-        const apiKey = config.apiKey || '';  // Default if not set
+        const dbPath = config.sqlitePath || '/data/node-red/kwfemon/buffer.db';  // Default if not set
+        const apiKey = config.apiKey || '';
+        const apiURL = config.apiURL || '';
         const sendInterval = config.sendInterval || 3600000;  // Default 1 hour
 
         // Ensure the directory for the SQLite database exists
@@ -49,7 +50,7 @@ module.exports = function(RED) {
         // Function to send data to the API
         async function sendToAPI(data) {
             try {
-                const response = await axios.post('https://europe-west6-energiemonitor-kwf.cloudfunctions.net/telemetry-api', data, {
+                const response = await axios.post(apiURL, data, {
                     headers: { 
                         'Content-Type': 'application/json',
                         'KWF-Device-Key': apiKey  // Add API key to request header
