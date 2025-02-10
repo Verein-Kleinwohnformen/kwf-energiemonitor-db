@@ -11,6 +11,7 @@ module.exports = function(RED) {
         // Retrieve configuration options
         const dbPath = config.sqlitePath || '/data/node-red/buffer.db';  // Default if not set
         const apiKey = config.apiKey || '';  // Default if not set
+        const sendInterval = config.sendInterval || 3600000;  // Default 1 hour
 
         // Ensure the directory for the SQLite database exists
         const dbDir = path.dirname(dbPath);
@@ -72,10 +73,10 @@ module.exports = function(RED) {
 
                 if (rows.length > 0) {
                     // Aggregate all rows into a single object/array to send to API
-                    const dataToSend = rows.map(row => ({
-                        timestamp: row.timestamp,
-                        temperature: row.temperature
-                    }));
+                    const dataToSend = rows.map(row => {
+                        const { sentToDB, ...data } = row;
+                        return data;
+                    });
 
                     // Split data into smaller chunks if there are more than MAX_ROWS
                     const chunks = [];
@@ -101,7 +102,7 @@ module.exports = function(RED) {
                     }
                 }
             });
-}
+        }
 
         // Write data to SQLite database
         function writeDatabase(data) {
@@ -156,7 +157,7 @@ module.exports = function(RED) {
         // Set up the timer for sending the buffer every hour
         setInterval(() => {
             readDatabase();  // Read and send buffer data every hour
-        }, 20000);  // 3600000 1 hour in milliseconds
+        }, sendInterval);
 
         node.on('input', function(msg, send, done) {
             if (!msg.topic || !msg.payload) {

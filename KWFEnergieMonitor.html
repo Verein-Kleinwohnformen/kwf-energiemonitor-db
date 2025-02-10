@@ -5,6 +5,7 @@
         defaults: {
             name: { value: 'KWF Datenbank Connector' },
             sqlitePath: { value: '/data/node-red/buffer.db' },
+            sendInterval: { value: 3600000},
             apiKey: { value: '' }
         },
         inputs: 1,
@@ -26,4 +27,10 @@
     <label for="node-input-apiKey"><i class="fa fa-key"></i> API Key</label>
     <input type="text" id="node-input-apiKey" placeholder="Enter API Key" required>
 </div>
+
+<div class="form-row">
+    <label for="node-input-sendInterval"><i class="fa fa-key"></i> Database send interval</label>
+    <input type="number" id="node-input-sendInterval" placeholder="Enter ms" required>
+</div>
+
 </script>
