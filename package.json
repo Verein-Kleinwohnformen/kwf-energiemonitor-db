@@ -1,6 +1,6 @@
 {
     "name": "@vereinkleinwohnformen/node-red-energiemonitor",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "description": "Energy monitor connector to the KWF databases",
     "dependencies": {
         "sqlite3": "^5.1.7",
@@ -9,7 +9,12 @@
     "engines": {
         "node": ">=14.0.0"
     },
-    "keywords": ["node-red", "kwf", "kleinwohnformen", "energiemonitor"],
+    "keywords": [
+        "node-red",
+        "kwf",
+        "kleinwohnformen",
+        "energiemonitor"
+    ],
     "author": "Micha Burger / Verein Kleinwohnformen",
     "license": "Apache-2.0",
     "node-red": {
