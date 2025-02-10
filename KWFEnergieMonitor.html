@@ -6,7 +6,8 @@
             name: { value: 'KWF Datenbank Connector' },
             sqlitePath: { value: '/data/node-red/buffer.db' },
             sendInterval: { value: 3600000},
-            apiKey: { value: '' }
+            apiURL: { value: '${KWF_API}' },
+            apiKey: { value: '${KWF_KEY}' }
         },
         inputs: 1,
         outputs: 0,
@@ -21,6 +22,11 @@
 <div class="form-row">
     <label for="node-input-sqlitePath"><i class="fa fa-folder"></i> SQLite Path</label>
     <input type="text" id="node-input-sqlitePath" placeholder="Enter path for persistant data storage" required>
+</div>
+
+<div class="form-row">
+    <label for="node-input-apiURL"><i class="fa fa-key"></i> API Key</label>
+    <input type="text" id="node-input-apiURL" placeholder="Enter API URL" required>
 </div>
 
 <div class="form-row">

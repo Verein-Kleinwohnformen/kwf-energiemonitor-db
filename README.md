@@ -11,15 +11,13 @@ So sieht eine Beispiel-Konfiguration aus. Deine NodeRED-Bausteine sollten noch f
 ![Beispiel](nodered-example.jpg)
 
 ### Installation
-Im Moment kann dieser Node nur über Github installiert werden. Direkt in Balena (node-red Terminal) in den folgenden Ordner gehen und von Git installieren: 
-```
-cd ../../../data/node-red/user/node_modules/
-npm install https://github.com/Verein-Kleinwohnformen/kwf-energiemonitor-db.git
-```
+Dieser Node kann über npm oder über die NodeRED-Palette installiert werden.
 
 ### Konfiguration
-Es werden zwei Parameter verwendet:
-- Einen Pfad, auf dem Daten persistent gespeichert werden können (für die Datenbank zur Zwischenspeicherung). Für eine Einrichtung auf Balena den Default-Wert beibehalten
+Diese Parameter müssen konfiguriert werden:
+- Einen Pfad, auf dem Daten persistent gespeichert werden können (für die Datenbank zur Zwischenspeicherung). Für eine Einrichtung auf Balena den Default-Wert beibehalten. Im Fall von Datenbank-Fehlern (z.B. alte Version des Blocks hat bereits ein anderes Datenbank-Format) kann es helfen, den Namen des Datenbank-Files auszutauschen.
+- Sende-Intervall, in dem die Daten an die Datenbank gesendet werden. Zum Testen ca. 1 Minute nehmen und im Betrieb 1 Stunde (Default).
+- Die URL der API, am besten aus den Balena Flotten-Variablen übernehmen
 - Deinen Device API-Key, am besten aus den Balena Device-Variablen übernehmen
 
 ### Topics
