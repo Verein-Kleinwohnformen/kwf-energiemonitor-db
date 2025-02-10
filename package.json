@@ -16,6 +16,8 @@
         "energiemonitor"
     ],
     "author": "Micha Burger / Verein Kleinwohnformen",
+    "homepage": "https://github.com/Verein-Kleinwohnformen/kwf-energiemonitor-db/blob/main/README.md",
+    "bugs": {"url": "https://github.com/Verein-Kleinwohnformen/kwf-energiemonitor-db/issues"},
     "license": "Apache-2.0",
     "node-red": {
         "version": ">=2.0.0",
