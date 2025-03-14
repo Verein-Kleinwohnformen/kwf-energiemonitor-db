@@ -9,10 +9,13 @@ module.exports = function(RED) {
         var node = this;
 
         // Retrieve configuration options
-        const dbPath = config.sqlitePath || '/data/node-red/kwfemon/buffer.db';  // Default if not set
+        const dbInput = config.sqlitePath || '/data/node-red/kwfemon/';  // Default if not set
         const apiKey = config.apiKey || '';
         const apiURL = config.apiURL || '';
         const sendInterval = config.sendInterval || 3600000;  // Default 1 hour
+        
+        // Enabling us to change the data format for future updates and using new databases in these cases
+        const dbPath = path.join(dbInput, 'buffer_v1.db');
 
         // Ensure the directory for the SQLite database exists
         const dbDir = path.dirname(dbPath);
@@ -33,11 +36,21 @@ module.exports = function(RED) {
         db.run(`CREATE TABLE IF NOT EXISTS buffer_data (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp INTEGER NOT NULL,
-            temp_out REAL,
-            temp_in REAL,
-            hum_in REAL,
-            hum_out REAL,
-            co2 REAL,
+            netatmo_indoor_id TEXT,
+            indoor_reachable BOOLEAN,
+            indoor_signal INTEGER,
+            indoor_temperature REAL,
+            indoor_humidity REAL,
+            indoor_co2 REAL,
+            indoor_pressure REAL,
+            outdoor_reachable BOOLEAN,
+            netatmo_outdoor_id TEXT,
+            outdoor_temperature REAL,
+            outdoor_humidity REAL,
+            outdoor_battery INTEGER,
+            outdoor_signal INTEGER,
+            warning TEXT,
+            sensor TEXT,
             sentToDB INTEGER DEFAULT 0
         );`, (err) => {
             if (err) {
@@ -107,7 +120,11 @@ module.exports = function(RED) {
 
         // Write data to SQLite database
         function writeDatabase(data) {
-            const { timestamp, temp_out, temp_in, hum_in, hum_out, co2 } = data;
+            const {
+                timestamp, netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature,
+                indoor_humidity, indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id,
+                outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, warning, sensor
+            } = data;
 
             db.get(`SELECT * FROM buffer_data WHERE timestamp = ?`, [timestamp], (err, row) => {
                 if (err) {
@@ -118,13 +135,14 @@ module.exports = function(RED) {
                 if (row) {
                     // Update existing record
                     db.run(`UPDATE buffer_data SET 
-                                temp_out = ?, 
-                                temp_in = ?, 
-                                hum_in = ?, 
-                                hum_out = ?, 
-                                co2 = ? 
+                                netatmo_indoor_id = ?, indoor_reachable = ?, indoor_signal = ?, indoor_temperature = ?, 
+                                indoor_humidity = ?, indoor_co2 = ?, indoor_pressure = ?, outdoor_reachable = ?, 
+                                netatmo_outdoor_id = ?, outdoor_temperature = ?, outdoor_humidity = ?, 
+                                outdoor_battery = ?, outdoor_signal = ?, warning = ?, sensor = ? 
                             WHERE timestamp = ?`, 
-                            [temp_out, temp_in, hum_in, hum_out, co2, timestamp], 
+                            [netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature, indoor_humidity, 
+                            indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id, outdoor_temperature, 
+                            outdoor_humidity, outdoor_battery, outdoor_signal, warning, sensor, timestamp], 
                             (err) => {
                                 if (err) {
                                     node.error('Error updating database:', err);
@@ -132,9 +150,13 @@ module.exports = function(RED) {
                             });
                 } else {
                     // Insert new record
-                    db.run(`INSERT INTO buffer_data (timestamp, temp_out, temp_in, hum_in, hum_out, co2) 
-                            VALUES (?, ?, ?, ?, ?, ?)`, 
-                            [timestamp, temp_out, temp_in, hum_in, hum_out, co2], 
+                    db.run(`INSERT INTO buffer_data (timestamp, netatmo_indoor_id, indoor_reachable, indoor_signal, 
+                            indoor_temperature, indoor_humidity, indoor_co2, indoor_pressure, outdoor_reachable, 
+                            netatmo_outdoor_id, outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, 
+                            warning, sensor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+                            [timestamp, netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature, 
+                            indoor_humidity, indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id, 
+                            outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, warning, sensor], 
                             (err) => {
                                 if (err) {
                                     node.error('Error inserting into database:', err);
@@ -144,13 +166,13 @@ module.exports = function(RED) {
             });
         }
 
-
         // Parse incoming data and add timestamp
-        function parseData(data, topic, fieldName) {
-            // Add timestamp and parse field data
+        function parseData(data, sensor) {
+            // Add timestamp and sensor to the data
             const timestampedData = {
-                [topic]: data[fieldName],
-                timestamp: Math.floor(Date.now() / 1000)  // Current Unix timestamp (seconds)
+                ...data,
+                timestamp: Math.floor(Date.now() / 1000),  // Current Unix timestamp (seconds)
+                sensor: sensor
             };
             writeDatabase(timestampedData);
         }
@@ -161,27 +183,48 @@ module.exports = function(RED) {
         }, sendInterval);
 
         node.on('input', function(msg, send, done) {
-            if (!msg.topic || !msg.payload) {
-                node.error('Invalid message: Missing topic or payload');
+            if (!msg.payload) {
+                node.error('Invalid message: Missing payload');
                 return done();
             }
 
-            let isValid = false;
-            let fieldName = "";
-            if (msg.topic === "temp_in" || msg.topic === "temp_out") {
-                if (typeof msg.payload.temperature === 'number') {
-                    fieldName = "temperature";
-                    isValid = true;
-                }
-            } 
-
-            if (!isValid) {
-                node.error('Invalid topic or payload format');
-                return done();
+            const topic = msg.topic;
+            let data = {};
+            
+            // Parse incoming data based on the topic
+            switch (topic) {
+                case 'netatmo':
+                    data = msg.payload;
+                    parseData(data, 'netatmo');
+                    break;
+                case 'temperature_indoor':
+                    data = {
+                        indoor_temperature: msg.payload
+                    };
+                    parseData(data, 'custom_temperature');
+                    break;
+                case 'temperature_outdoor':
+                    data = {
+                        outdoor_temperature: msg.payload
+                    };
+                    parseData(data, 'custom_temperature');
+                    break;
+                case 'humidity_indoor':
+                    data = {
+                        indoor_humidity: msg.payload
+                    };
+                    parseData(data, 'custom_humidity');
+                    break;
+                case 'humidity_outdoor':
+                    data = {
+                        outdoor_humidity: msg.payload
+                    };
+                    parseData(data, 'custom_humidity');
+                    break;
+                default:
+                    node.error('Invalid message: Missing or unknown topic');
+                    return done();
             }
-
-            // Parse and save incoming data to buffer
-            parseData(msg.payload, msg.topic, fieldName);
 
             if (done) { done(); }
         });

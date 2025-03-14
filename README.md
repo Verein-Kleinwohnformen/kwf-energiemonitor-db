@@ -42,10 +42,14 @@ Diese Parameter müssen konfiguriert werden:
 ### Topics
 Damit dieser Node verschiedene Input-Daten unterscheiden kann, müssen die Topics von NodeRED verwendet werden. Momentan werden folgende Topics unterstützt:
 
-| Topic | Key | Empfohlenes Intervall | Beschreibung |
-|----------|----------|----------|-----------|
-| temp_in   | temperature  | 1-10 Minuten   | Innentemperatur. Wenn mehrere Werte gemessen werden, bitte vorher einen Durchschnitt bilden. |
-| temp_out   | temperature   | 1-10 Minuten  | Aussentemperatur
+| Sensorbeschreibung                                                                                 | Topic              | Format | Beispiel |
+|--------------------------------------------------------------------------------------------------|-----------------|---------|-----------|
+| Netatmo Wetterstation mit Temperatur, Luftfeuchtigkeit, CO2, Luftdruck innen sowie Temperatur und Luftfeuchtigkeit aussen. | netatmo           | json    | <pre>{<br>  "netatmo_indoor_id": "xx-xx-xx",<br>  "indoor_reachable": true,<br>  "indoor_signal": -76,<br>  "indoor_temperature": 23.1,<br>  "indoor_humidity": 61.3,<br>  "indoor_co2": 1237,<br>  "indoor_pressure": 986.3,<br>  "outdoor_reachable": true,<br>  "netatmo_outdoor_id": "xx-xx-xx",<br>  "outdoor_temperature": 16.3,<br>  "outdoor_humidity": 83,<br>  "outdoor_battery": 26,<br>  "outdoor_signal": -81,<br>  "warning": null<br>}</pre> |
+| Indoor-Temperatur von einem anderen Sensor                                                     | temperature_indoor | number | 23.1      |
+| Outdoor-Temperatur von einem anderen Sensor                                                    | temperature_outdoor | number | 16.7      |
+| Indoor-Luftfeuchtigkeit von einem anderen Sensor                                               | humidity_indoor   | number | 56.3      |
+| Outdoor-Luftfeuchtigkeit von einem anderen Sensor                                              | humidity_outdoor | number | 83         |
+
 
 ## Todo
 Weitere Aufgaben für dieses Projekt:
