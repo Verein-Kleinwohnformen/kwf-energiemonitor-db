@@ -15,7 +15,7 @@ module.exports = function(RED) {
         const sendInterval = config.sendInterval || 3600000;  // Default 1 hour
         
         // Enabling us to change the data format for future updates and using new databases in these cases
-        const dbPath = path.join(dbInput, 'buffer_v1.db');
+        const dbPath = path.join(dbInput, 'buffer_v2.db');
 
         // Ensure the directory for the SQLite database exists
         const dbDir = path.dirname(dbPath);
