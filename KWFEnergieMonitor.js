@@ -50,6 +50,7 @@ module.exports = function(RED) {
             outdoor_battery INTEGER,
             outdoor_signal INTEGER,
             warning TEXT,
+            ac_l1_p REAL,
             sensor TEXT,
             sentToDB INTEGER DEFAULT 0
         );`, (err) => {
@@ -123,7 +124,8 @@ module.exports = function(RED) {
             const {
                 timestamp, netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature,
                 indoor_humidity, indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id,
-                outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, warning, sensor
+                outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, warning, 
+                ac_l1_p, sensor
             } = data;
 
             db.get(`SELECT * FROM buffer_data WHERE timestamp = ?`, [timestamp], (err, row) => {
@@ -138,11 +140,11 @@ module.exports = function(RED) {
                                 netatmo_indoor_id = ?, indoor_reachable = ?, indoor_signal = ?, indoor_temperature = ?, 
                                 indoor_humidity = ?, indoor_co2 = ?, indoor_pressure = ?, outdoor_reachable = ?, 
                                 netatmo_outdoor_id = ?, outdoor_temperature = ?, outdoor_humidity = ?, 
-                                outdoor_battery = ?, outdoor_signal = ?, warning = ?, sensor = ? 
+                                outdoor_battery = ?, outdoor_signal = ?, warning = ?, ac_l1_p = ?, sensor = ? 
                             WHERE timestamp = ?`, 
                             [netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature, indoor_humidity, 
                             indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id, outdoor_temperature, 
-                            outdoor_humidity, outdoor_battery, outdoor_signal, warning, sensor, timestamp], 
+                            outdoor_humidity, outdoor_battery, outdoor_signal, warning, ac_l1_p, sensor, timestamp], 
                             (err) => {
                                 if (err) {
                                     node.error('Error updating database:', err);
@@ -153,10 +155,11 @@ module.exports = function(RED) {
                     db.run(`INSERT INTO buffer_data (timestamp, netatmo_indoor_id, indoor_reachable, indoor_signal, 
                             indoor_temperature, indoor_humidity, indoor_co2, indoor_pressure, outdoor_reachable, 
                             netatmo_outdoor_id, outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, 
-                            warning, sensor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+                            warning, ac_l1_p, sensor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
                             [timestamp, netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature, 
                             indoor_humidity, indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id, 
-                            outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, warning, sensor], 
+                            outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, warning, 
+                            ac_l1_p, sensor], 
                             (err) => {
                                 if (err) {
                                     node.error('Error inserting into database:', err);
@@ -220,6 +223,12 @@ module.exports = function(RED) {
                         outdoor_humidity: msg.payload
                     };
                     parseData(data, 'custom_humidity');
+                    break;
+                case 'victron_ac_l1_p':
+                    data = {
+                        ac_l1_p: msg.payload
+                    };
+                    parseData(data, 'victron');
                     break;
                 default:
                     node.error('Invalid message: Missing or unknown topic');
