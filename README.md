@@ -49,6 +49,7 @@ Damit dieser Node verschiedene Input-Daten unterscheiden kann, müssen die Topic
 | Outdoor-Temperatur von einem anderen Sensor                                                    | temperature_outdoor | number | 16.7      |
 | Indoor-Luftfeuchtigkeit von einem anderen Sensor                                               | humidity_indoor   | number | 56.3      |
 | Outdoor-Luftfeuchtigkeit von einem anderen Sensor                                              | humidity_outdoor | number | 83         |
+| AC Verbrauch (W) Phase 1, gemessen übers Victron System                                        | victron_ac_l1_p  | number | 800.3      |
 
 
 ## Todo
