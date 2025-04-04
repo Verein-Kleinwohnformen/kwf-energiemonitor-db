@@ -1,5 +1,5 @@
 const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const fs = require('fs');
 const axios = require('axios');
 
@@ -16,6 +16,7 @@ module.exports = function(RED) {
         
         // Enabling us to change the data format for future updates and using new databases in these cases
         const dbPath = path.join(dbInput, 'buffer_v2.db');
+        let db; // Moved db declaration here
 
         // Ensure the directory for the SQLite database exists
         const dbDir = path.dirname(dbPath);
@@ -23,43 +24,44 @@ module.exports = function(RED) {
             fs.mkdirSync(dbDir, { recursive: true });
         }
 
-        // Open SQLite database (this creates the file if it doesn't exist)
-        const db = new sqlite3.Database(dbPath, (err) => {
-            if (err) {
-                node.error('Error opening database:', err);
-            } else {
-                node.log(`Database opened or created at ${dbPath}`);
-            }
-        });
+        try {
+            // Open SQLite database (this creates the file if it doesn't exist)
+            // better-sqlite3 is synchronous, so we use try/catch instead of callbacks
+            db = new Database(dbPath);
+            node.log(`Database opened or created at ${dbPath}`);
+        } catch (err) {
+            node.error(`Error opening database: ${err.message}`);
+            return;
+        }
 
-        // Create table if it doesn't exist
-        db.run(`CREATE TABLE IF NOT EXISTS buffer_data (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp INTEGER NOT NULL,
-            netatmo_indoor_id TEXT,
-            indoor_reachable BOOLEAN,
-            indoor_signal INTEGER,
-            indoor_temperature REAL,
-            indoor_humidity REAL,
-            indoor_co2 REAL,
-            indoor_pressure REAL,
-            outdoor_reachable BOOLEAN,
-            netatmo_outdoor_id TEXT,
-            outdoor_temperature REAL,
-            outdoor_humidity REAL,
-            outdoor_battery INTEGER,
-            outdoor_signal INTEGER,
-            warning TEXT,
-            ac_l1_p REAL,
-            sensor TEXT,
-            sentToDB INTEGER DEFAULT 0
-        );`, (err) => {
-            if (err) {
-                node.error('Error creating table:', err);
-            } else {
-                node.log('Table "buffer_data" is ready');
-            }
-        });
+        // Create table if it doesn't exist (synchronous in better-sqlite3)
+        try {
+            db.exec(`CREATE TABLE IF NOT EXISTS buffer_data (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp INTEGER NOT NULL,
+                netatmo_indoor_id TEXT,
+                indoor_reachable BOOLEAN,
+                indoor_signal INTEGER,
+                indoor_temperature REAL,
+                indoor_humidity REAL,
+                indoor_co2 REAL,
+                indoor_pressure REAL,
+                outdoor_reachable BOOLEAN,
+                netatmo_outdoor_id TEXT,
+                outdoor_temperature REAL,
+                outdoor_humidity REAL,
+                outdoor_battery INTEGER,
+                outdoor_signal INTEGER,
+                warning TEXT,
+                ac_l1_p REAL,
+                sensor TEXT,
+                sentToDB INTEGER DEFAULT 0
+            );`);
+            node.log('Table "buffer_data" is ready');
+        } catch (err) {
+            node.error(`Error creating table: ${err.message}`);
+            return;
+        }
 
         // Function to send data to the API
         async function sendToAPI(data) {
@@ -79,12 +81,11 @@ module.exports = function(RED) {
         }
 
         // Read data from SQLite where sentToDB = 0 (not yet sent to API)
-        function readDatabase() {
-            db.all(`SELECT * FROM buffer_data WHERE sentToDB = 0`, [], async (err, rows) => {
-                if (err) {
-                    node.error('Error reading from database:', err);
-                    return;
-                }
+        async function readDatabase() {
+            try {
+                // better-sqlite3 uses prepared statements that are executed synchronously
+                const stmt = db.prepare('SELECT * FROM buffer_data WHERE sentToDB = 0');
+                const rows = stmt.all(); // Get all results at once
 
                 if (rows.length > 0) {
                     // Aggregate all rows into a single object/array to send to API
@@ -106,17 +107,20 @@ module.exports = function(RED) {
                         if (success) {
                             // Update sentToDB to 1 (sent) for all rows in the batch
                             const timestamps = chunk.map(item => item.timestamp);
-                            db.run(`UPDATE buffer_data SET sentToDB = 1 WHERE timestamp IN (${timestamps.join(',')})`, function(err) {
-                                if (err) {
-                                    node.error('Error updating sentToDB:', err);
-                                }
-                            });
+                            try {
+                                const updateStmt = db.prepare(`UPDATE buffer_data SET sentToDB = 1 WHERE timestamp IN (${timestamps.join(',')})`);
+                                updateStmt.run();
+                            } catch (err) {
+                                node.error(`Error updating sentToDB: ${err.message}`);
+                            }
                         } else {
                             node.error('Error sending data to API');
                         }
                     }
                 }
-            });
+            } catch (err) {
+                node.error(`Error reading from database: ${err.message}`);
+            }
         }
 
         // Write data to SQLite database
@@ -128,45 +132,43 @@ module.exports = function(RED) {
                 ac_l1_p, sensor
             } = data;
 
-            db.get(`SELECT * FROM buffer_data WHERE timestamp = ?`, [timestamp], (err, row) => {
-                if (err) {
-                    node.error('Error checking for existing timestamp:', err);
-                    return;
-                }
+            try {
+                // Check if record already exists
+                const checkStmt = db.prepare('SELECT * FROM buffer_data WHERE timestamp = ?');
+                const existingRow = checkStmt.get(timestamp);
 
-                if (row) {
+                if (existingRow) {
                     // Update existing record
-                    db.run(`UPDATE buffer_data SET 
-                                netatmo_indoor_id = ?, indoor_reachable = ?, indoor_signal = ?, indoor_temperature = ?, 
-                                indoor_humidity = ?, indoor_co2 = ?, indoor_pressure = ?, outdoor_reachable = ?, 
-                                netatmo_outdoor_id = ?, outdoor_temperature = ?, outdoor_humidity = ?, 
-                                outdoor_battery = ?, outdoor_signal = ?, warning = ?, ac_l1_p = ?, sensor = ? 
-                            WHERE timestamp = ?`, 
-                            [netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature, indoor_humidity, 
-                            indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id, outdoor_temperature, 
-                            outdoor_humidity, outdoor_battery, outdoor_signal, warning, ac_l1_p, sensor, timestamp], 
-                            (err) => {
-                                if (err) {
-                                    node.error('Error updating database:', err);
-                                }
-                            });
+                    const updateStmt = db.prepare(`UPDATE buffer_data SET 
+                        netatmo_indoor_id = ?, indoor_reachable = ?, indoor_signal = ?, indoor_temperature = ?, 
+                        indoor_humidity = ?, indoor_co2 = ?, indoor_pressure = ?, outdoor_reachable = ?, 
+                        netatmo_outdoor_id = ?, outdoor_temperature = ?, outdoor_humidity = ?, 
+                        outdoor_battery = ?, outdoor_signal = ?, warning = ?, ac_l1_p = ?, sensor = ? 
+                    WHERE timestamp = ?`);
+                    
+                    updateStmt.run(
+                        netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature, indoor_humidity,
+                        indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id, outdoor_temperature,
+                        outdoor_humidity, outdoor_battery, outdoor_signal, warning, ac_l1_p, sensor, timestamp
+                    );
                 } else {
                     // Insert new record
-                    db.run(`INSERT INTO buffer_data (timestamp, netatmo_indoor_id, indoor_reachable, indoor_signal, 
-                            indoor_temperature, indoor_humidity, indoor_co2, indoor_pressure, outdoor_reachable, 
-                            netatmo_outdoor_id, outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, 
-                            warning, ac_l1_p, sensor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-                            [timestamp, netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature, 
-                            indoor_humidity, indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id, 
-                            outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, warning, 
-                            ac_l1_p, sensor], 
-                            (err) => {
-                                if (err) {
-                                    node.error('Error inserting into database:', err);
-                                }
-                            });
+                    const insertStmt = db.prepare(`INSERT INTO buffer_data (
+                        timestamp, netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature, 
+                        indoor_humidity, indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id, 
+                        outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, warning, 
+                        ac_l1_p, sensor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+                    
+                    insertStmt.run(
+                        timestamp, netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature,
+                        indoor_humidity, indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id,
+                        outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, warning,
+                        ac_l1_p, sensor
+                    );
                 }
-            });
+            } catch (err) {
+                node.error(`Database error: ${err.message}`);
+            }
         }
 
         // Parse incoming data and add timestamp
@@ -181,9 +183,18 @@ module.exports = function(RED) {
         }
 
         // Set up the timer for sending the buffer every hour
-        setInterval(() => {
+        const intervalId = setInterval(() => {
             readDatabase();  // Read and send buffer data every hour
         }, sendInterval);
+
+        // Clean up when node is closed
+        this.on('close', function(done) {
+            clearInterval(intervalId);
+            if (db) {
+                db.close();
+            }
+            done();
+        });
 
         node.on('input', function(msg, send, done) {
             if (!msg.payload) {
