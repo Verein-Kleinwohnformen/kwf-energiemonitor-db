@@ -112,8 +112,6 @@ Basierend auf dem Messkonzept werden folgende Messpunkte unterstützt:
 {
   "values": {
     "device_id": "aa:bb:cc:dd:ee:01",
-    "station_name": "Energiemonitor 1 (Indoor)",
-    "home_name": "Energiemonitor 1",
     "device_reachable": true,
     "wifi_signal_strength": 65,
     "temperature_indoor": 19.8,
@@ -122,14 +120,10 @@ Basierend auf dem Messkonzept werden folgende Messpunkte unterstützt:
     "pressure": 1028.9,
     "noise_level": 32,
     "pressure_absolute": 976.5,
-    "temperature_trend": "stable",
-    "pressure_trend": "up",
     "outdoor_module_reachable": true,
     "outdoor_module_id": "aa:bb:cc:dd:ee:02",
-    "outdoor_module_name": "Outdoor",
     "temperature_outdoor": 18.4,
     "humidity_outdoor": 60,
-    "outdoor_temp_trend": "stable",
     "battery_level": 100,
     "rf_signal_strength": 53,
     "battery_voltage": 6116,

@@ -51,7 +51,7 @@ module.exports = function(RED) {
                 timestamp INTEGER NOT NULL,
                 sensor_id TEXT NOT NULL,
                 metering_point TEXT NOT NULL,
-                values TEXT NOT NULL,  -- JSON string of the values object
+                measurements TEXT NOT NULL,  -- JSON string of the sensor measurements
                 sentToDB INTEGER DEFAULT 0,
                 created_at INTEGER DEFAULT (strftime('%s', 'now'))
             );`);
@@ -94,12 +94,12 @@ module.exports = function(RED) {
                 if (rows.length > 0) {
                     // Process data and parse JSON values back to objects
                     const dataToSend = rows.map(row => {
-                        const { sentToDB, created_at, ...data } = row;
-                        // Parse the JSON values back to object
+                        const { sentToDB, created_at, measurements, ...data } = row;
+                        // Parse the JSON measurements back to values object for API
                         try {
-                            data.values = JSON.parse(data.values);
+                            data.values = JSON.parse(measurements);
                         } catch (err) {
-                            node.error(`Error parsing values JSON for row ${data.id}: ${err.message}`);
+                            node.error(`Error parsing measurements JSON for row ${data.id}: ${err.message}`);
                             data.values = {};
                         }
                         return data;
@@ -145,8 +145,8 @@ module.exports = function(RED) {
             }
 
             try {
-                // Convert values object to JSON string for storage
-                const valuesJson = JSON.stringify(values);
+                // Convert values object to JSON string for storage as measurements
+                const measurementsJson = JSON.stringify(values);
 
                 // Check if record already exists (same sensor, timestamp, and metering point)
                 const checkStmt = db.prepare('SELECT * FROM sensor_data WHERE timestamp = ? AND sensor_id = ? AND metering_point = ?');
@@ -155,17 +155,17 @@ module.exports = function(RED) {
                 if (existingRow) {
                     // Update existing record
                     const updateStmt = db.prepare(`UPDATE sensor_data SET 
-                        values = ?, sentToDB = 0 
+                        measurements = ?, sentToDB = 0 
                     WHERE timestamp = ? AND sensor_id = ? AND metering_point = ?`);
                     
-                    updateStmt.run(valuesJson, timestamp, sensor_id, metering_point);
+                    updateStmt.run(measurementsJson, timestamp, sensor_id, metering_point);
                     node.log(`Updated existing record for sensor ${sensor_id}, metering point ${metering_point}`);
                 } else {
                     // Insert new record
                     const insertStmt = db.prepare(`INSERT INTO sensor_data (
-                        timestamp, sensor_id, metering_point, values) VALUES (?, ?, ?, ?)`);
+                        timestamp, sensor_id, metering_point, measurements) VALUES (?, ?, ?, ?)`);
                     
-                    insertStmt.run(timestamp, sensor_id, metering_point, valuesJson);
+                    insertStmt.run(timestamp, sensor_id, metering_point, measurementsJson);
                     node.log(`Inserted new record for sensor ${sensor_id}, metering point ${metering_point}`);
                 }
             } catch (err) {
