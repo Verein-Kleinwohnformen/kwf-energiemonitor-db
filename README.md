@@ -39,21 +39,121 @@ Diese Parameter müssen konfiguriert werden:
 - Die URL der API, am besten aus den Balena Flotten-Variablen übernehmen
 - Deinen Device API-Key, am besten aus den Balena Device-Variablen übernehmen
 
-### Topics
-Damit dieser Node verschiedene Input-Daten unterscheiden kann, müssen die Topics von NodeRED verwendet werden. Momentan werden folgende Topics unterstützt:
+### Input-Datenformat
 
-| Sensorbeschreibung                                                                                 | Topic              | Format | Beispiel |
-|--------------------------------------------------------------------------------------------------|-----------------|---------|-----------|
-| Netatmo Wetterstation mit Temperatur, Luftfeuchtigkeit, CO2, Luftdruck innen sowie Temperatur und Luftfeuchtigkeit aussen. | netatmo           | json    | <pre>{<br>  "netatmo_indoor_id": "xx-xx-xx",<br>  "indoor_reachable": true,<br>  "indoor_signal": -76,<br>  "indoor_temperature": 23.1,<br>  "indoor_humidity": 61.3,<br>  "indoor_co2": 1237,<br>  "indoor_pressure": 986.3,<br>  "outdoor_reachable": true,<br>  "netatmo_outdoor_id": "xx-xx-xx",<br>  "outdoor_temperature": 16.3,<br>  "outdoor_humidity": 83,<br>  "outdoor_battery": 26,<br>  "outdoor_signal": -81,<br>  "warning": null<br>}</pre> |
-| Indoor-Temperatur von einem anderen Sensor                                                     | temperature_indoor | number | 23.1      |
-| Outdoor-Temperatur von einem anderen Sensor                                                    | temperature_outdoor | number | 16.7      |
-| Indoor-Luftfeuchtigkeit von einem anderen Sensor                                               | humidity_indoor   | number | 56.3      |
-| Outdoor-Luftfeuchtigkeit von einem anderen Sensor                                              | humidity_outdoor | number | 83         |
-| AC Verbrauch (W) Phase 1, gemessen übers Victron System                                        | victron_ac_l1_p  | number | 800.3      |
+Das Input-Datenformat basiert jetzt auf Messpunkten (measurement_point), die für jede Wohneinheit separat definiert werden. Jeder Sensor hat eine eindeutige ID und jeder Datenpunkt wird einem spezifischen Messpunkt zugeordnet.
 
+**Wichtig:** Topics werden nicht mehr verwendet. Alle Informationen werden in `msg.payload` übertragen.
+
+#### Grundlegendes Format
+
+```json
+{
+  "values": {
+    // Sensor-spezifische Messwerte
+  },
+  "sensor_id": "eindeutige-sensor-id",
+  "timestamp": 1760084970005,
+  "metering_point": "XX"
+}
+```
+
+#### Unterstützte Messpunkte
+
+Basierend auf dem Messkonzept werden folgende Messpunkte unterstützt:
+
+**Externe Messpunkte (Rand der Systemdefinition):**
+
+- `E1`: Netzbezug el. Energie [kWh]
+- `E2`: Rückspeisung el. Energie [kWh]  
+- `E3`: Eigenproduktion el. Energie [kWh]
+- `M1`: Gas in Flaschen [kg]
+- `M2`: Brennholz oder Pellets [kg, Ster]
+- `A1`: Abzug Verbrauch Energiemonitor [kWh]
+
+**Interne Messpunkte:**
+
+- `I1`: Warmwassererzeugung [kWh / kg Gas]
+- `I2`: Energiebedarf Heizung [kWh / kg / Ster]
+
+**Wohnkomfort:**
+
+- `K0`: Wohnkomfort Allgemein (Kombinierte Sensoren) [°C, % RH, ppm]
+- `K1`: Innentemperatur, Lieblingsort [°C]
+- `K2`: Aussentemperatur N, Schatten [°C]
+- `K3`: Luftfeuchtigkeit, Lieblingsort [% RH]
+- `K4`: CO2-Gehalt, Lieblingsort [ppm]
+
+**Wasser:**
+
+- `D1`: Gesamtwasserverbrauch [m3]
+
+#### Beispiele für verschiedene Sensortypen
+
+**230V Stromklemmen (z.B. Shelly 3EM Pro):**
+
+```json
+{
+  "values": {
+    "voltage": 231.27,
+    "act_power": 14.555,
+    "pf": 0.33,
+    "aprt_power": 44.35
+  },
+  "sensor_id": "shelly-3em-pro",
+  "timestamp": 1760084970005,
+  "metering_point": "E1"
+}
+```
+
+**Netatmo Wetterstation:**
+
+```json
+{
+  "values": {
+    "device_id": "aa:bb:cc:dd:ee:01",
+    "station_name": "Energiemonitor 1 (Indoor)",
+    "home_name": "Energiemonitor 1",
+    "device_reachable": true,
+    "wifi_signal_strength": 65,
+    "temperature_indoor": 19.8,
+    "humidity_indoor": 51,
+    "co2_indoor": 460,
+    "pressure": 1028.9,
+    "noise_level": 32,
+    "pressure_absolute": 976.5,
+    "temperature_trend": "stable",
+    "pressure_trend": "up",
+    "outdoor_module_reachable": true,
+    "outdoor_module_id": "aa:bb:cc:dd:ee:02",
+    "outdoor_module_name": "Outdoor",
+    "temperature_outdoor": 18.4,
+    "humidity_outdoor": 60,
+    "outdoor_temp_trend": "stable",
+    "battery_level": 100,
+    "rf_signal_strength": 53,
+    "battery_voltage": 6116,
+    "temperature_difference": 1.4
+  },
+  "sensor_id": "netatmo",
+  "timestamp": 1760086636000,
+  "metering_point": "K0"
+}
+```
+
+## Unterstützte Sensortypen
+
+Die folgende Tabelle zeigt die aktuell unterstützten Sensortypen und ihre typischen Anwendungsfälle:
+
+| Sensortyp | Sensor ID | Beschreibung | Typische Messpunkte | Gemessene Werte |
+|-----------|-----------|--------------|-------------------|-----------------|
+| **Shelly 3EM Pro** | `shelly-3em-pro` | 230V Stromklemmen für Energiemessung | E1, E2, E3, A1, I1, I2 | voltage, act_power, pf, aprt_power |
+| **Netatmo Wetterstation** | `netatmo` | Innen- und Außenklima-Monitoring | K0, K1, K2, K3, K4 | Temperatur, Luftfeuchtigkeit, CO2, Luftdruck, Lärm, Batteriestand, Signalstärke |
 
 ## Todo
+
 Weitere Aufgaben für dieses Projekt:
+
 - Support für Victron Cerbo GX testen
 - Basis-Sensoren des Energiemonitor-Kits einbinden
 - Weitere Datenformate unterstützen: Alle Victron-Geräte, sowie weitere Input-Daten

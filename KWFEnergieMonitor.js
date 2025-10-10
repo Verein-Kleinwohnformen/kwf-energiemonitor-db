@@ -1,3 +1,13 @@
+/*
+ * KWF Energiemonitor NodeRED Node
+ * 
+ * NodeRED Node Development Documentation:
+ * - Creating Nodes: https://nodered.org/docs/creating-nodes/
+ * - JavaScript File: https://nodered.org/docs/creating-nodes/node-js
+ * - Node Properties: https://nodered.org/docs/creating-nodes/properties
+ * - Node Context: https://nodered.org/docs/creating-nodes/context
+ */
+
 const path = require('path');
 const Database = require('better-sqlite3');
 const fs = require('fs');
@@ -15,7 +25,7 @@ module.exports = function(RED) {
         const sendInterval = config.sendInterval || 3600000;  // Default 1 hour
         
         // Enabling us to change the data format for future updates and using new databases in these cases
-        const dbPath = path.join(dbInput, 'buffer_v2.db');
+        const dbPath = path.join(dbInput, 'buffer_v3.db');
         let db; // Moved db declaration here
 
         // Ensure the directory for the SQLite database exists
@@ -36,28 +46,22 @@ module.exports = function(RED) {
 
         // Create table if it doesn't exist (synchronous in better-sqlite3)
         try {
-            db.exec(`CREATE TABLE IF NOT EXISTS buffer_data (
+            db.exec(`CREATE TABLE IF NOT EXISTS sensor_data (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp INTEGER NOT NULL,
-                netatmo_indoor_id TEXT,
-                indoor_reachable BOOLEAN,
-                indoor_signal INTEGER,
-                indoor_temperature REAL,
-                indoor_humidity REAL,
-                indoor_co2 REAL,
-                indoor_pressure REAL,
-                outdoor_reachable BOOLEAN,
-                netatmo_outdoor_id TEXT,
-                outdoor_temperature REAL,
-                outdoor_humidity REAL,
-                outdoor_battery INTEGER,
-                outdoor_signal INTEGER,
-                warning TEXT,
-                ac_l1_p REAL,
-                sensor TEXT,
-                sentToDB INTEGER DEFAULT 0
+                sensor_id TEXT NOT NULL,
+                metering_point TEXT NOT NULL,
+                values TEXT NOT NULL,  -- JSON string of the values object
+                sentToDB INTEGER DEFAULT 0,
+                created_at INTEGER DEFAULT (strftime('%s', 'now'))
             );`);
-            node.log('Table "buffer_data" is ready');
+            
+            // Create index for better performance
+            db.exec(`CREATE INDEX IF NOT EXISTS idx_sensor_data_timestamp ON sensor_data(timestamp);`);
+            db.exec(`CREATE INDEX IF NOT EXISTS idx_sensor_data_sent ON sensor_data(sentToDB);`);
+            db.exec(`CREATE INDEX IF NOT EXISTS idx_sensor_data_metering_point ON sensor_data(metering_point);`);
+            
+            node.log('Table "sensor_data" is ready');
         } catch (err) {
             node.error(`Error creating table: ${err.message}`);
             return;
@@ -84,13 +88,20 @@ module.exports = function(RED) {
         async function readDatabase() {
             try {
                 // better-sqlite3 uses prepared statements that are executed synchronously
-                const stmt = db.prepare('SELECT * FROM buffer_data WHERE sentToDB = 0');
+                const stmt = db.prepare('SELECT * FROM sensor_data WHERE sentToDB = 0');
                 const rows = stmt.all(); // Get all results at once
 
                 if (rows.length > 0) {
-                    // Aggregate all rows into a single object/array to send to API
+                    // Process data and parse JSON values back to objects
                     const dataToSend = rows.map(row => {
-                        const { sentToDB, ...data } = row;
+                        const { sentToDB, created_at, ...data } = row;
+                        // Parse the JSON values back to object
+                        try {
+                            data.values = JSON.parse(data.values);
+                        } catch (err) {
+                            node.error(`Error parsing values JSON for row ${data.id}: ${err.message}`);
+                            data.values = {};
+                        }
                         return data;
                     });
 
@@ -106,9 +117,9 @@ module.exports = function(RED) {
 
                         if (success) {
                             // Update sentToDB to 1 (sent) for all rows in the batch
-                            const timestamps = chunk.map(item => item.timestamp);
+                            const ids = chunk.map(item => item.id);
                             try {
-                                const updateStmt = db.prepare(`UPDATE buffer_data SET sentToDB = 1 WHERE timestamp IN (${timestamps.join(',')})`);
+                                const updateStmt = db.prepare(`UPDATE sensor_data SET sentToDB = 1 WHERE id IN (${ids.join(',')})`);
                                 updateStmt.run();
                             } catch (err) {
                                 node.error(`Error updating sentToDB: ${err.message}`);
@@ -125,61 +136,62 @@ module.exports = function(RED) {
 
         // Write data to SQLite database
         function writeDatabase(data) {
-            const {
-                timestamp, netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature,
-                indoor_humidity, indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id,
-                outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, warning, 
-                ac_l1_p, sensor
-            } = data;
+            const { timestamp, sensor_id, metering_point, values } = data;
+
+            // Validate required fields
+            if (!sensor_id || !metering_point || !values || !timestamp) {
+                node.error('Missing required fields: sensor_id, metering_point, values, or timestamp');
+                return;
+            }
 
             try {
-                // Check if record already exists
-                const checkStmt = db.prepare('SELECT * FROM buffer_data WHERE timestamp = ?');
-                const existingRow = checkStmt.get(timestamp);
+                // Convert values object to JSON string for storage
+                const valuesJson = JSON.stringify(values);
+
+                // Check if record already exists (same sensor, timestamp, and metering point)
+                const checkStmt = db.prepare('SELECT * FROM sensor_data WHERE timestamp = ? AND sensor_id = ? AND metering_point = ?');
+                const existingRow = checkStmt.get(timestamp, sensor_id, metering_point);
 
                 if (existingRow) {
                     // Update existing record
-                    const updateStmt = db.prepare(`UPDATE buffer_data SET 
-                        netatmo_indoor_id = ?, indoor_reachable = ?, indoor_signal = ?, indoor_temperature = ?, 
-                        indoor_humidity = ?, indoor_co2 = ?, indoor_pressure = ?, outdoor_reachable = ?, 
-                        netatmo_outdoor_id = ?, outdoor_temperature = ?, outdoor_humidity = ?, 
-                        outdoor_battery = ?, outdoor_signal = ?, warning = ?, ac_l1_p = ?, sensor = ? 
-                    WHERE timestamp = ?`);
+                    const updateStmt = db.prepare(`UPDATE sensor_data SET 
+                        values = ?, sentToDB = 0 
+                    WHERE timestamp = ? AND sensor_id = ? AND metering_point = ?`);
                     
-                    updateStmt.run(
-                        netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature, indoor_humidity,
-                        indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id, outdoor_temperature,
-                        outdoor_humidity, outdoor_battery, outdoor_signal, warning, ac_l1_p, sensor, timestamp
-                    );
+                    updateStmt.run(valuesJson, timestamp, sensor_id, metering_point);
+                    node.log(`Updated existing record for sensor ${sensor_id}, metering point ${metering_point}`);
                 } else {
                     // Insert new record
-                    const insertStmt = db.prepare(`INSERT INTO buffer_data (
-                        timestamp, netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature, 
-                        indoor_humidity, indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id, 
-                        outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, warning, 
-                        ac_l1_p, sensor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+                    const insertStmt = db.prepare(`INSERT INTO sensor_data (
+                        timestamp, sensor_id, metering_point, values) VALUES (?, ?, ?, ?)`);
                     
-                    insertStmt.run(
-                        timestamp, netatmo_indoor_id, indoor_reachable, indoor_signal, indoor_temperature,
-                        indoor_humidity, indoor_co2, indoor_pressure, outdoor_reachable, netatmo_outdoor_id,
-                        outdoor_temperature, outdoor_humidity, outdoor_battery, outdoor_signal, warning,
-                        ac_l1_p, sensor
-                    );
+                    insertStmt.run(timestamp, sensor_id, metering_point, valuesJson);
+                    node.log(`Inserted new record for sensor ${sensor_id}, metering point ${metering_point}`);
                 }
             } catch (err) {
                 node.error(`Database error: ${err.message}`);
             }
         }
 
-        // Parse incoming data and add timestamp
-        function parseData(data, sensor) {
-            // Add timestamp and sensor to the data
-            const timestampedData = {
-                ...data,
-                timestamp: Math.floor(Date.now() / 1000),  // Current Unix timestamp (seconds)
-                sensor: sensor
+        // Parse incoming data
+        function parseData(payload) {
+            // Validate the new data format
+            if (!payload.sensor_id || !payload.metering_point || !payload.values) {
+                node.error('Invalid payload format. Required: sensor_id, metering_point, values');
+                return;
+            }
+
+            // Use provided timestamp or create new one
+            const timestamp = payload.timestamp || Date.now();
+            
+            const data = {
+                sensor_id: payload.sensor_id,
+                metering_point: payload.metering_point,
+                values: payload.values,
+                timestamp: timestamp
             };
-            writeDatabase(timestampedData);
+            
+            writeDatabase(data);
         }
 
         // Set up the timer for sending the buffer every hour
@@ -202,48 +214,12 @@ module.exports = function(RED) {
                 return done();
             }
 
-            const topic = msg.topic;
-            let data = {};
-            
-            // Parse incoming data based on the topic
-            switch (topic) {
-                case 'netatmo':
-                    data = msg.payload;
-                    parseData(data, 'netatmo');
-                    break;
-                case 'temperature_indoor':
-                    data = {
-                        indoor_temperature: msg.payload
-                    };
-                    parseData(data, 'custom_temperature');
-                    break;
-                case 'temperature_outdoor':
-                    data = {
-                        outdoor_temperature: msg.payload
-                    };
-                    parseData(data, 'custom_temperature');
-                    break;
-                case 'humidity_indoor':
-                    data = {
-                        indoor_humidity: msg.payload
-                    };
-                    parseData(data, 'custom_humidity');
-                    break;
-                case 'humidity_outdoor':
-                    data = {
-                        outdoor_humidity: msg.payload
-                    };
-                    parseData(data, 'custom_humidity');
-                    break;
-                case 'victron_ac_l1_p':
-                    data = {
-                        ac_l1_p: msg.payload
-                    };
-                    parseData(data, 'victron');
-                    break;
-                default:
-                    node.error('Invalid message: Missing or unknown topic');
-                    return done();
+            // New format: all data in payload, no topic needed
+            try {
+                parseData(msg.payload);
+                node.log(`Processed data from sensor ${msg.payload.sensor_id} for metering point ${msg.payload.metering_point}`);
+            } catch (error) {
+                node.error(`Error processing input data: ${error.message}`);
             }
 
             if (done) { done(); }

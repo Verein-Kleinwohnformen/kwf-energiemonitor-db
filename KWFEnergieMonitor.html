@@ -1,3 +1,14 @@
+<!--
+    KWF Energiemonitor NodeRED Node HTML Definition
+    
+    NodeRED Node Development Documentation:
+    - Creating Nodes: https://nodered.org/docs/creating-nodes/
+    - HTML File: https://nodered.org/docs/creating-nodes/node-html
+    - Edit Dialog: https://nodered.org/docs/creating-nodes/edit-dialog
+    - Help Style Guide: https://nodered.org/docs/creating-nodes/help-style-guide
+    - Node Appearance: https://nodered.org/docs/creating-nodes/appearance
+-->
+
 <script type="text/javascript">
     RED.nodes.registerType('kwf-energiemonitor', {
         category: 'Verein Kleinwohnformen',
@@ -35,8 +46,79 @@
 </div>
 
 <div class="form-row">
-    <label for="node-input-sendInterval"><i class="fa fa-key"></i> Database send interval</label>
+    <label for="node-input-sendInterval"><i class="fa fa-clock-o"></i> Database send interval</label>
     <input type="number" id="node-input-sendInterval" placeholder="Enter ms" required>
 </div>
 
+</script>
+
+<script type="text/html" data-help-name="kwf-energiemonitor">
+<p>Lokaler Zwischenspeicher für Energiemonitor-Daten mit automatischer Übertragung zur KWF-Datenbank.</p>
+
+<h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload
+            <span class="property-type">object</span>
+        </dt>
+        <dd>Sensor-Datenpaket im neuen Messpunkt-Format</dd>
+        <dt>payload.sensor_id
+            <span class="property-type">string</span>
+        </dt>
+        <dd>Eindeutige Sensor-ID</dd>
+        <dt>payload.metering_point
+            <span class="property-type">string</span>
+        </dt>
+        <dd>Messpunkt-ID gemäß KWF-Messkonzept (E1, E2, E3, M1, M2, A1, I1, I2, K1, K2, K3, K4, D1)</dd>
+        <dt>payload.values
+            <span class="property-type">object</span>
+        </dt>
+        <dd>Sensor-spezifische Messwerte</dd>
+        <dt class="optional">payload.timestamp
+            <span class="property-type">number</span>
+        </dt>
+        <dd>Unix-Timestamp in Millisekunden. Wird automatisch generiert wenn nicht vorhanden.</dd>
+    </dl>
+
+<h3>Details</h3>
+    <p>Dieser Node sammelt Energiemonitor-Daten lokal in einer SQLite-Datenbank und überträgt sie in konfigurierbaren Intervallen zur KWF-Cloud-Datenbank.</p>
+    
+    <h4>Neues Datenformat</h4>
+    <p>Das neue Datenformat basiert auf Messpunkten gemäß dem KWF-Messkonzept. Topics werden nicht mehr verwendet - alle Informationen sind in <code>msg.payload</code> enthalten.</p>
+    
+    <p>Beispiel für 230V Stromklemmen (Shelly 3EM Pro):</p>
+    <pre>{
+  "values": {
+    "voltage": 231.27,
+    "act_power": 14.555,
+    "pf": 0.33,
+    "aprt_power": 44.35
+  },
+  "sensor_id": "shelly-3em-pro",
+  "timestamp": 1760084970005,
+  "metering_point": "E1"
+}</pre>
+
+    <h4>Unterstützte Messpunkte</h4>
+    <ul>
+        <li><strong>E1-E3:</strong> Externe Elektro-Messpunkte (Netzbezug, Rückspeisung, Eigenproduktion)</li>
+        <li><strong>M1-M2:</strong> Material-Messpunkte (Gas, Brennholz/Pellets)</li>
+        <li><strong>A1:</strong> Abzug Energiemonitor-Verbrauch</li>
+        <li><strong>I1-I2:</strong> Interne Messpunkte (Warmwasser, Heizung)</li>
+        <li><strong>K1-K4:</strong> Komfort-Messpunkte (Temperatur, Luftfeuchtigkeit, CO2)</li>
+        <li><strong>D1:</strong> Wasserverbrauch</li>
+    </ul>
+
+    <h4>Konfiguration</h4>
+    <ul>
+        <li><strong>SQLite Path:</strong> Pfad für lokale Datenspeicherung</li>
+        <li><strong>API URL:</strong> KWF-Datenbank-Endpunkt</li>
+        <li><strong>API Key:</strong> Authentifizierung für KWF-Datenbank</li>
+        <li><strong>Send Interval:</strong> Übertragungsintervall in Millisekunden</li>
+    </ul>
+
+<h3>References</h3>
+    <ul>
+        <li><a href="https://github.com/Verein-Kleinwohnformen/kwf-energiemonitor-db">GitHub Repository</a></li>
+        <li><a href="https://kleinwohnformen.ch">Verein Kleinwohnformen</a></li>
+    </ul>
 </script>
