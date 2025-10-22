@@ -135,6 +135,63 @@ Basierend auf dem Messkonzept werden folgende Messpunkte unterstützt:
 }
 ```
 
+#### Per-Value Timestamps mit `ts_` Prefix (v0.4.2+)
+
+Der Node unterstützt **individuelle Timestamps für jeden Messwert** über das `ts_` Präfix-System. Dies ist besonders nützlich für Sensoren, die ihre Messwerte in unterschiedlichen Intervallen aktualisieren.
+
+**Wie es funktioniert:**
+
+- Für jeden Messwert kann ein individueller Timestamp mit dem Präfix `ts_` angegeben werden
+- Der Node gruppiert automatisch Werte mit gleichen Timestamps in separate Datenbankeinträge
+- Werte ohne `ts_` Präfix werden in alle Datenbankeinträge übernommen (z.B. Metadaten)
+- Vollständig rückwärtskompatibel: Funktioniert auch ohne `ts_` Präfixe
+
+**Beispiel: Netatmo mit individuellen Timestamps**
+
+```json
+{
+  "values": {
+    "ts_temperature_indoor": 1761140223000,
+    "temperature_indoor": 19.6,
+    "ts_humidity_indoor": 1761140223000,
+    "humidity_indoor": 51,
+    "ts_temperature_outdoor": 1761140210000,
+    "temperature_outdoor": 18.8,
+    "ts_humidity_outdoor": 1761140210000,
+    "humidity_outdoor": 64,
+    "wifi_signal_strength": 67,
+    "device_id": "aa:bb:cc:dd:ee:01"
+  },
+  "sensor_id": "netatmo",
+  "timestamp": 1761140877000,
+  "metering_point": "K0"
+}
+```
+
+**Resultierende Datenbankeinträge:**
+
+```
+Eintrag 1: timestamp=1761140223000
+  - temperature_indoor: 19.6
+  - humidity_indoor: 51
+  - wifi_signal_strength: 67
+  - device_id: "aa:bb:cc:dd:ee:01"
+
+Eintrag 2: timestamp=1761140210000
+  - temperature_outdoor: 18.8
+  - humidity_outdoor: 64
+  - wifi_signal_strength: 67
+  - device_id: "aa:bb:cc:dd:ee:01"
+```
+
+**Vorteile:**
+
+- ✅ Präzise Zeitstempel für jede Messung
+- ✅ Automatische Gruppierung nach Timestamp
+- ✅ Metadaten werden in alle Einträge übernommen
+- ✅ Verhindert Duplikate durch intelligente Merge-Logik
+- ✅ Universal einsetzbar für beliebige Sensoren
+
 ## Unterstützte Sensortypen
 
 Die folgende Tabelle zeigt die aktuell unterstützten Sensortypen und ihre typischen Anwendungsfälle:

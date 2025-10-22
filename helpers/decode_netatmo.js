@@ -4,8 +4,8 @@ var devices = msg.payload.body.devices;
 // Initialize the new data format structure
 var data = {
     sensor_id: "netatmo",
-    timestamp: Date.now(), // Current timestamp in milliseconds
-    metering_point: "K0", // Placeholder measurement point
+    timestamp: Date.now(), // Current timestamp in milliseconds (fallback)
+    metering_point: "K0",
     values: {}
 };
 
@@ -18,20 +18,28 @@ for (let i = 0; i < devices.length; i++) {
         var indoor_data = devices[i].dashboard_data;
         data.values["device_reachable"] = devices[i].reachable;
 
-        // Use the timestamp from the device data if available
-        if (indoor_data.time_utc) {
-            data.timestamp = indoor_data.time_utc * 1000; // Convert to milliseconds
-        }
-
         if (devices[i].reachable) {
-            // Indoor sensor data (from devices[i].dashboard_data)
-            data.values["wifi_signal_strength"] = devices[i].wifi_status;
+            // Indoor sensor data with individual timestamps (ts_ prefix)
+            data.values["ts_temperature_indoor"] = indoor_data.time_utc * 1000;
             data.values["temperature_indoor"] = indoor_data.Temperature;
+            
+            data.values["ts_humidity_indoor"] = indoor_data.time_utc * 1000;
             data.values["humidity_indoor"] = indoor_data.Humidity;
+            
+            data.values["ts_co2_indoor"] = indoor_data.time_utc * 1000;
             data.values["co2_indoor"] = indoor_data.CO2;
+            
+            data.values["ts_pressure"] = indoor_data.time_utc * 1000;
             data.values["pressure"] = indoor_data.Pressure;
+            
+            data.values["ts_noise_level"] = indoor_data.time_utc * 1000;
             data.values["noise_level"] = indoor_data.Noise;
+            
+            data.values["ts_pressure_absolute"] = indoor_data.time_utc * 1000;
             data.values["pressure_absolute"] = indoor_data.AbsolutePressure;
+            
+            // WiFi signal strength (no timestamp, always current)
+            data.values["wifi_signal_strength"] = devices[i].wifi_status;
 
             // Outdoor modules data (from devices[i].modules[j])
             var modules = devices[i].modules;
@@ -44,16 +52,21 @@ for (let i = 0; i < devices.length; i++) {
 
                         if (modules[j].reachable) { 
                             var outdoor_data = modules[j].dashboard_data;
-                            // Outdoor sensor data (from devices[i].modules[0].dashboard_data)
+                            
+                            // Outdoor sensor data with individual timestamps (ts_ prefix)
+                            data.values["ts_temperature_outdoor"] = outdoor_data.time_utc * 1000;
                             data.values["temperature_outdoor"] = outdoor_data.Temperature;
+                            
+                            data.values["ts_humidity_outdoor"] = outdoor_data.time_utc * 1000;
                             data.values["humidity_outdoor"] = outdoor_data.Humidity;
                             
-                            // Module status data (from devices[i].modules[0])
+                            // Module status data (no timestamp, always current)
                             data.values["battery_level"] = modules[j].battery_percent;
                             data.values["rf_signal_strength"] = modules[j].rf_status;
                             data.values["battery_voltage"] = modules[j].battery_vp;
                             
-                            // Calculate temperature difference
+                            // Calculate temperature difference with timestamp (use most recent of the two)
+                            data.values["ts_temperature_difference"] = Math.max(indoor_data.time_utc, outdoor_data.time_utc) * 1000;
                             data.values["temperature_difference"] = indoor_data.Temperature - outdoor_data.Temperature;
                         }
                     }

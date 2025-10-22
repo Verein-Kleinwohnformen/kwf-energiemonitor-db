@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2025-10-22
+
+### Added
+
+- **Universal `ts_` prefix system for per-value timestamps**: The node now supports individual timestamps for each measurement value
+  - Values with a `ts_` prefix (e.g., `ts_temperature_indoor`) are stored with their specific measurement timestamp
+  - Multiple values with different timestamps in a single payload are automatically split into separate database records
+  - Non-timestamped values are merged into all records, ensuring metadata is preserved
+  - Fully backward compatible: works with or without `ts_` prefixed values
+- Updated Netatmo decoder to use `ts_` prefixes for accurate measurement timestamps
+  - Each sensor value now includes its exact measurement time from the Netatmo device
+  - Prevents duplicate entries while maintaining precise temporal accuracy
+
+### Changed
+
+- Enhanced `writeDatabase()` function to intelligently process timestamped values
+- Improved Netatmo decoder to store device timestamps with each measurement
+- Database records now reflect actual measurement times rather than polling times
+
+### Fixed
+
+- Resolved issue where Netatmo data appeared to update only every 10 minutes despite more frequent polling
+- Timestamp accuracy now preserved for sensors that update at their own intervals
+
 ## [0.4.1] - 2025-10-10
 
 ### Added

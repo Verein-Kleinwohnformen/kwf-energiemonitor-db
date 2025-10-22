@@ -145,28 +145,97 @@ module.exports = function(RED) {
             }
 
             try {
-                // Convert values object to JSON string for storage as measurements
-                const measurementsJson = JSON.stringify(values);
+                // Process ts_ prefixed values to create separate records
+                const timestampedValues = {};
+                const regularValues = {};
+                
+                // Separate timestamped values from regular values
+                for (const [key, value] of Object.entries(values)) {
+                    if (key.startsWith('ts_')) {
+                        // This is a timestamp for a corresponding value
+                        const valueName = key.substring(3); // Remove 'ts_' prefix
+                        const tsValue = parseInt(value);
+                        
+                        if (!timestampedValues[tsValue]) {
+                            timestampedValues[tsValue] = {};
+                        }
+                        
+                        // Add the actual value (without ts_ prefix) if it exists
+                        if (values.hasOwnProperty(valueName)) {
+                            timestampedValues[tsValue][valueName] = values[valueName];
+                        }
+                    } else {
+                        // Check if this value has a corresponding ts_ entry
+                        const hasTimestamp = values.hasOwnProperty(`ts_${key}`);
+                        if (!hasTimestamp) {
+                            // No timestamp, add to regular values
+                            regularValues[key] = value;
+                        }
+                        // If it has a timestamp, it's already handled above
+                    }
+                }
 
-                // Check if record already exists (same sensor, timestamp, and metering point)
-                const checkStmt = db.prepare('SELECT * FROM sensor_data WHERE timestamp = ? AND sensor_id = ? AND metering_point = ?');
-                const existingRow = checkStmt.get(timestamp, sensor_id, metering_point);
+                // Insert/update records for each unique timestamp
+                for (const [ts, tsValues] of Object.entries(timestampedValues)) {
+                    const recordTimestamp = parseInt(ts);
+                    
+                    // Merge regular values (without timestamps) into each timestamped record
+                    const combinedValues = { ...regularValues, ...tsValues };
+                    const measurementsJson = JSON.stringify(combinedValues);
 
-                if (existingRow) {
-                    // Update existing record
-                    const updateStmt = db.prepare(`UPDATE sensor_data SET 
-                        measurements = ?, sentToDB = 0 
-                    WHERE timestamp = ? AND sensor_id = ? AND metering_point = ?`);
+                    // Check if record already exists
+                    const checkStmt = db.prepare('SELECT * FROM sensor_data WHERE timestamp = ? AND sensor_id = ? AND metering_point = ?');
+                    const existingRow = checkStmt.get(recordTimestamp, sensor_id, metering_point);
+
+                    if (existingRow) {
+                        // Merge with existing measurements
+                        let existingMeasurements = {};
+                        try {
+                            existingMeasurements = JSON.parse(existingRow.measurements);
+                        } catch (err) {
+                            node.error(`Error parsing existing measurements: ${err.message}`);
+                        }
+                        
+                        const mergedMeasurements = { ...existingMeasurements, ...combinedValues };
+                        const mergedJson = JSON.stringify(mergedMeasurements);
+                        
+                        const updateStmt = db.prepare(`UPDATE sensor_data SET 
+                            measurements = ?, sentToDB = 0 
+                        WHERE timestamp = ? AND sensor_id = ? AND metering_point = ?`);
+                        
+                        updateStmt.run(mergedJson, recordTimestamp, sensor_id, metering_point);
+                        node.log(`Updated existing record for sensor ${sensor_id}, metering point ${metering_point}, timestamp ${new Date(recordTimestamp).toISOString()}`);
+                    } else {
+                        // Insert new record
+                        const insertStmt = db.prepare(`INSERT INTO sensor_data (
+                            timestamp, sensor_id, metering_point, measurements) VALUES (?, ?, ?, ?)`);
+                        
+                        insertStmt.run(recordTimestamp, sensor_id, metering_point, measurementsJson);
+                        node.log(`Inserted new record for sensor ${sensor_id}, metering point ${metering_point}, timestamp ${new Date(recordTimestamp).toISOString()}`);
+                    }
+                }
+
+                // If there are only regular values (no ts_ prefixed timestamps), use the default timestamp
+                if (Object.keys(timestampedValues).length === 0 && Object.keys(regularValues).length > 0) {
+                    const measurementsJson = JSON.stringify(regularValues);
                     
-                    updateStmt.run(measurementsJson, timestamp, sensor_id, metering_point);
-                    node.log(`Updated existing record for sensor ${sensor_id}, metering point ${metering_point}`);
-                } else {
-                    // Insert new record
-                    const insertStmt = db.prepare(`INSERT INTO sensor_data (
-                        timestamp, sensor_id, metering_point, measurements) VALUES (?, ?, ?, ?)`);
-                    
-                    insertStmt.run(timestamp, sensor_id, metering_point, measurementsJson);
-                    node.log(`Inserted new record for sensor ${sensor_id}, metering point ${metering_point}`);
+                    const checkStmt = db.prepare('SELECT * FROM sensor_data WHERE timestamp = ? AND sensor_id = ? AND metering_point = ?');
+                    const existingRow = checkStmt.get(timestamp, sensor_id, metering_point);
+
+                    if (existingRow) {
+                        const updateStmt = db.prepare(`UPDATE sensor_data SET 
+                            measurements = ?, sentToDB = 0 
+                        WHERE timestamp = ? AND sensor_id = ? AND metering_point = ?`);
+                        
+                        updateStmt.run(measurementsJson, timestamp, sensor_id, metering_point);
+                        node.log(`Updated existing record for sensor ${sensor_id}, metering point ${metering_point}`);
+                    } else {
+                        const insertStmt = db.prepare(`INSERT INTO sensor_data (
+                            timestamp, sensor_id, metering_point, measurements) VALUES (?, ?, ?, ?)`);
+                        
+                        insertStmt.run(timestamp, sensor_id, metering_point, measurementsJson);
+                        node.log(`Inserted new record for sensor ${sensor_id}, metering point ${metering_point}`);
+                    }
                 }
             } catch (err) {
                 node.error(`Database error: ${err.message}`);
