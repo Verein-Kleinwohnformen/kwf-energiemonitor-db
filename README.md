@@ -1,22 +1,10 @@
-# Das Projekt Energiemonitor
-Dieses Projekt soll es dir ermöglichen, deinen Energieverbrauch zu messen, in Echtzeit zu analysieren, zu verstehen und zu optimieren - mit dem Ziel dass du mit den einfachen aber richtigen Aktionen im Alltag 20% deines Energieverbrauchs einsparen kannst. Dieses Projekt wird vom [Verein Kleinwohnformen](https://kleinwohnformen.ch) getragen und ist in erster Linie auf kleine, unabhängige Wohnformen zugeschnitten. Es ist aber nicht ausgeschlossen, dass du unseren Monitor auch für deine Wohnung bauen und nutzen kannst - wir sind Open Source und Mitmachen im Projekt ist erwünscht! Einfach melden beim [Energiemonitor-Team](mailto:energiemonitor@kleinwohnformen.ch).
+# KWF Energiemonitor: Node-RED-Connector
 
-## Projekt-Repos
-- [Referenz-HW und Provisionierung mit BalenaOS](https://github.com/Verein-Kleinwohnformen/energiemonitor-balena-nodered)
-- [NodeRED-Connector neu](https://github.com/Verein-Kleinwohnformen/kwf-energiemonitor-db)
-- [NodeRED Beispiel-Flows (depr.)](https://github.com/Verein-Kleinwohnformen/energiemonitor-nodered-flows)
-- [Energiemonitor-App (Repo)](https://github.com/Verein-Kleinwohnformen/energiemonitor-app)
-- [Energiemonitor-App (Demo)](https://energiemonitor-kwf.web.app/)
+**Status:** Beta, produktiv im Langzeittest (Version 0.4.2). npm: [`@vereinkleinwohnformen/node-red-energiemonitor`](https://flows.nodered.org/node/@vereinkleinwohnformen/node-red-energiemonitor)
 
-## Angestrebte Architektur
-Wir befinden uns noch in der Designphase, viele der eingezeichneten Komponenten existieren noch nicht. Wir streben aber das folgende System an:
+Teil des [KWF Energiemonitors](https://github.com/Verein-Kleinwohnformen/energiemonitor-docs), einem offenen Messsystem für Kleinwohnformen, gebaut für die Energiestudie mit der HSLU und für den [Verein Kleinwohnformen](https://kleinwohnformen.ch). Der Energiemonitor ist kein Produkt, sondern eine offene Plattform zum Nachbauen. Einstieg, Bauanleitung und Glossar: [energiemonitor-docs](https://github.com/Verein-Kleinwohnformen/energiemonitor-docs).
 
-![Hardware-Architektur](img/arch1.png)
-
-![Software-Architektur](img/arch2.png)
-
-
-# NodeRED Connector für KWF Energiemonitor (beta)
+## Was der Connector macht
 Dieser Node ist der Kernbaustein des KWF Energiemonitors. Du musst dich nur noch darum kümmern, die gewünschten Datenkanäle einzulesen, und sie in einem passenden Intervall mit dem richtigen Topic an diesen Baustein (KWF Datenbank-Connector) zu schicken, und dieser Block übernimmt den Rest, nämlich:
 - Daten in einer lokalen Datenbank zwischenspeichern
 - Daten regelmässig (1 mal pro Stunde) oder wenn wieder eine Internetverbindung vorhanden ist, an die Datenbank zu schicken.
@@ -36,8 +24,8 @@ Dieser Node ist bereits in der [NodeRED-Library](https://flows.nodered.org/node/
 Diese Parameter müssen konfiguriert werden:
 - Einen Pfad, auf dem Daten persistent gespeichert werden können (für die Datenbank zur Zwischenspeicherung). Für eine Einrichtung auf Balena den Default-Wert beibehalten. Im Fall von Datenbank-Fehlern (z.B. alte Version des Blocks hat bereits ein anderes Datenbank-Format) kann es helfen, den Namen des Datenbank-Files auszutauschen.
 - Sende-Intervall (ms), in dem die Daten an die Datenbank gesendet werden. Zum Testen ca. 1 Minute nehmen und im Betrieb 1 Stunde (Default).
-- Die URL der API, am besten aus den Balena Flotten-Variablen übernehmen
-- Deinen Device API-Key, am besten aus den Balena Device-Variablen übernehmen
+- Die URL der API, am besten aus der Balena-Variable `KWF_URL` übernehmen. In Variante A (Mitmachen im KWF-System) ist das die KWF-API, in Variante B deine eigene.
+- Deinen Device API-Key, am besten aus der Balena-Device-Variable `KWF_KEY` übernehmen. In Variante A vergibt ihn das Team, siehe [Variante A](https://github.com/Verein-Kleinwohnformen/energiemonitor-docs/blob/main/docs/variante-a-mitmachen.md).
 
 ### Input-Datenformat
 
@@ -58,35 +46,9 @@ Das Input-Datenformat basiert jetzt auf Messpunkten (measurement_point), die fü
 }
 ```
 
-#### Unterstützte Messpunkte
+#### Messpunkte
 
-Basierend auf dem Messkonzept werden folgende Messpunkte unterstützt:
-
-**Externe Messpunkte (Rand der Systemdefinition):**
-
-- `E1`: Netzbezug el. Energie [kWh]
-- `E2`: Rückspeisung el. Energie [kWh]  
-- `E3`: Eigenproduktion el. Energie [kWh]
-- `M1`: Gas in Flaschen [kg]
-- `M2`: Brennholz oder Pellets [kg, Ster]
-- `A1`: Abzug Verbrauch Energiemonitor [kWh]
-
-**Interne Messpunkte:**
-
-- `I1`: Warmwassererzeugung [kWh / kg Gas]
-- `I2`: Energiebedarf Heizung [kWh / kg / Ster]
-
-**Wohnkomfort:**
-
-- `K0`: Wohnkomfort Allgemein (Kombinierte Sensoren) [°C, % RH, ppm]
-- `K1`: Innentemperatur, Lieblingsort [°C]
-- `K2`: Aussentemperatur N, Schatten [°C]
-- `K3`: Luftfeuchtigkeit, Lieblingsort [% RH]
-- `K4`: CO2-Gehalt, Lieblingsort [ppm]
-
-**Wasser:**
-
-- `D1`: Gesamtwasserverbrauch [m3]
+Die Messpunkte (E1, E2, E3, M0, M1, M2, A1, I1 bis I3, K0 bis K4, D1, NA) sind an einer Stelle definiert: [Glossar der Messpunkte](https://github.com/Verein-Kleinwohnformen/energiemonitor-docs/blob/main/docs/messpunkte.md).
 
 #### Beispiele für verschiedene Sensortypen
 
@@ -194,18 +156,25 @@ Eintrag 2: timestamp=1761140210000
 
 ## Unterstützte Sensortypen
 
-Die folgende Tabelle zeigt die aktuell unterstützten Sensortypen und ihre typischen Anwendungsfälle:
+Der Connector verlangt nur, dass `sensor_id` und `metering_point` gesetzt sind (die API validiert die Daten zusätzlich). Diese IDs sind in der Praxis im Einsatz (Definition im [Glossar](https://github.com/Verein-Kleinwohnformen/energiemonitor-docs/blob/main/docs/messpunkte.md)):
 
-| Sensortyp | Sensor ID | Beschreibung | Typische Messpunkte | Gemessene Werte |
-|-----------|-----------|--------------|-------------------|-----------------|
-| **Shelly 3EM Pro** | `shelly-3em-pro` | 230V Stromklemmen für Energiemessung | E1, E2, E3, A1, I1, I2 | voltage, act_power, pf, aprt_power |
-| **Netatmo Wetterstation** | `netatmo` | Innen- und Außenklima-Monitoring | K0, K1, K2, K3, K4 | Temperatur, Luftfeuchtigkeit, CO2, Luftdruck, Lärm, Batteriestand, Signalstärke |
+| Sensortyp | Sensor ID | Typische Messpunkte | Gemessene Werte |
+|---|---|---|---|
+| Shelly Pro 3EM | `shelly-3em-pro` | E1, E2, E3, A1, I1, I2, I3 | voltage, current, act_power, aprt_power, pf |
+| Peacefair PZEM-017 (DC) | `pzem-017` | E3 und weitere DC-Punkte | voltage, current, power |
+| Netatmo Wetterstation | `netatmo` | K0 (K1 bis K4) | Temperatur, Luftfeuchtigkeit, CO2, Luftdruck, Lärm, Batterie, Signal |
+| Victron GX (Cerbo, Venus) | `victron` | E1, E2, E3 | power |
+| Sensirion Smart Gadgets (BLE, über MQTT) | `sensirion` (prüfen) | K1, K3, K4 | Temperatur, Feuchte, CO2, VOC |
+| Wasserzähler | (prüfen) | D1 | Verbrauch in m³ |
 
 ## Todo
 
-Weitere Aufgaben für dieses Projekt:
-
-- Support für Victron Cerbo GX testen
+- Aggregation der Messdaten im Connector statt in den Flows, damit weniger Daten in die Cloud gehen
 - Basis-Sensoren des Energiemonitor-Kits einbinden
-- Weitere Datenformate unterstützen: Alle Victron-Geräte, sowie weitere Input-Daten
-- Aggregation der Messdaten übernehmen, damit nicht zuviele Daten in die Cloud geschickt werden können, sondern vorher ein Durchschnitt gebildet wird
+- Weitere Victron-Datenformate
+
+Erledigt: Victron Cerbo GX läuft produktiv.
+
+## Lizenz
+
+Apache License 2.0, siehe [LICENSE](LICENSE). Fragen: [energiemonitor@kleinwohnformen.ch](mailto:energiemonitor@kleinwohnformen.ch)
