@@ -13,6 +13,23 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const axios = require('axios');
 
+/**
+ * Device-Key in dieser Reihenfolge: Credential im Node, altes Feld apiKey
+ * (bis 0.4.x, Node-RED hat ${VAR} dort schon ersetzt), Umgebungsvariable KWF_KEY.
+ * Ein Credential der Form ${VAR} wird aus der Umgebung gelesen.
+ */
+function resolveApiKey(credentials, config, env = process.env) {
+    const fromEnvRef = (value) => {
+        const m = /^\$\{(\w+)\}$/.exec(value || '');
+        return m ? (env[m[1]] || '') : (value || '');
+    };
+    const cred = fromEnvRef(credentials && credentials.apiKey);
+    if (cred) return cred;
+    const legacy = fromEnvRef(config && config.apiKey);
+    if (legacy) return legacy;
+    return env.KWF_KEY || '';
+}
+
 module.exports = function(RED) {
     function KWFEnergieMonitor(config) {
         RED.nodes.createNode(this, config);
@@ -20,7 +37,10 @@ module.exports = function(RED) {
 
         // Retrieve configuration options
         const dbInput = config.sqlitePath || '/data/node-red/kwfemon/';  // Default if not set
-        const apiKey = config.apiKey || '';
+        const apiKey = resolveApiKey(node.credentials, config);
+        if (!apiKey) {
+            node.warn('Kein Device-Key: im Node eintragen oder Balena-Variable KWF_KEY setzen');
+        }
         const apiURL = config.apiURL || '';
         const sendInterval = config.sendInterval || 3600000;  // Default 1 hour
         
@@ -295,5 +315,11 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("kwf-energiemonitor", KWFEnergieMonitor);
+    RED.nodes.registerType("kwf-energiemonitor", KWFEnergieMonitor, {
+        credentials: {
+            apiKey: { type: 'password' }
+        }
+    });
 };
+
+module.exports.resolveApiKey = resolveApiKey;

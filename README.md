@@ -1,18 +1,17 @@
 # KWF Energiemonitor: Node-RED-Connector
 
-**Status:** Beta, produktiv im Langzeittest (Version 0.4.2). npm: [`@vereinkleinwohnformen/node-red-energiemonitor`](https://flows.nodered.org/node/@vereinkleinwohnformen/node-red-energiemonitor)
+**Status:** Beta, produktiv im Langzeittest (Version 0.5.0). npm: [`@vereinkleinwohnformen/node-red-energiemonitor`](https://flows.nodered.org/node/@vereinkleinwohnformen/node-red-energiemonitor)
 
 Teil des [KWF Energiemonitors](https://github.com/Verein-Kleinwohnformen/energiemonitor-docs), einem offenen Messsystem für Kleinwohnformen, gebaut für die Energiestudie mit der HSLU und für den [Verein Kleinwohnformen](https://kleinwohnformen.ch). Der Energiemonitor ist kein Produkt, sondern eine offene Plattform zum Nachbauen. Einstieg, Bauanleitung und Glossar: [energiemonitor-docs](https://github.com/Verein-Kleinwohnformen/energiemonitor-docs).
 
 ## Was der Connector macht
-Dieser Node ist der Kernbaustein des KWF Energiemonitors. Du musst dich nur noch darum kümmern, die gewünschten Datenkanäle einzulesen, und sie in einem passenden Intervall mit dem richtigen Topic an diesen Baustein (KWF Datenbank-Connector) zu schicken, und dieser Block übernimmt den Rest, nämlich:
+Dieser Node ist der Kernbaustein des KWF Energiemonitors. Du musst dich nur noch darum kümmern, die gewünschten Datenkanäle einzulesen, und sie in einem passenden Intervall im richtigen Format (siehe unten) an diesen Baustein (KWF Datenbank-Connector) zu schicken, und dieser Block übernimmt den Rest, nämlich:
 - Daten in einer lokalen Datenbank zwischenspeichern
 - Daten regelmässig (1 mal pro Stunde) oder wenn wieder eine Internetverbindung vorhanden ist, an die Datenbank zu schicken.
 
 So sieht eine Beispiel-Konfiguration aus. Deine NodeRED-Bausteine sollten noch folgende Aufgaben übernehmen:
 - Daten ggf. aggregieren und in der empfohlenen Frequenz an diesen Connector schicken (Idee: Zukünftig könnte auch dieser Konnektor Daten aggregieren, um Fehler und falsche Inputs in der Datenbank zu vermeiden)
-- Das richtige Format sicherstellen
-- Das richtige Topic anfügen
+- Das richtige Format sicherstellen, mit `sensor_id` und `metering_point` in `msg.payload`
 
 Das sieht dann so aus. Auf der linken Seite hast du deine Mess-Blocks, die alle mit unserem Connector verbunden sind.
 ![Beispiel](img/nodered-example.jpg)
@@ -25,7 +24,7 @@ Diese Parameter müssen konfiguriert werden:
 - Einen Pfad, auf dem Daten persistent gespeichert werden können (für die Datenbank zur Zwischenspeicherung). Für eine Einrichtung auf Balena den Default-Wert beibehalten. Im Fall von Datenbank-Fehlern (z.B. alte Version des Blocks hat bereits ein anderes Datenbank-Format) kann es helfen, den Namen des Datenbank-Files auszutauschen.
 - Sende-Intervall (ms), in dem die Daten an die Datenbank gesendet werden. Zum Testen ca. 1 Minute nehmen und im Betrieb 1 Stunde (Default).
 - Die URL der API, am besten aus der Balena-Variable `KWF_URL` übernehmen. In Variante A (Mitmachen im KWF-System) ist das die KWF-API, in Variante B deine eigene.
-- Deinen Device API-Key, am besten aus der Balena-Device-Variable `KWF_KEY` übernehmen. In Variante A vergibt ihn das Team, siehe [Variante A](https://github.com/Verein-Kleinwohnformen/energiemonitor-docs/blob/main/docs/variante-a-mitmachen.md).
+- Deinen Device-Key: Feld leer lassen, dann liest der Connector die Balena-Device-Variable `KWF_KEY` (empfohlen). Ein im Node eingetragener Key wird ab Version 0.5.0 als Credential verschlüsselt gespeichert (`flows_cred.json`) und nie in `flows.json`. In Variante A vergibt ihn das Team, siehe [Variante A](https://github.com/Verein-Kleinwohnformen/energiemonitor-docs/blob/main/docs/variante-a-mitmachen.md).
 
 ### Input-Datenformat
 
