@@ -1,6 +1,6 @@
 # KWF Energiemonitor: Node-RED-Connector
 
-**Status:** Beta, produktiv im Langzeittest (Version 0.4.2, 0.5.0 in Vorbereitung). npm: [`@vereinkleinwohnformen/node-red-energiemonitor`](https://flows.nodered.org/node/@vereinkleinwohnformen/node-red-energiemonitor)
+**Status:** Beta, produktiv im Langzeittest (Version 0.5.0). npm: [`@vereinkleinwohnformen/node-red-energiemonitor`](https://flows.nodered.org/node/@vereinkleinwohnformen/node-red-energiemonitor)
 
 Teil des [KWF Energiemonitors](https://github.com/Verein-Kleinwohnformen/energiemonitor-docs), einem offenen Messsystem für Kleinwohnformen, gebaut für die Energiestudie mit der HSLU und für den [Verein Kleinwohnformen](https://kleinwohnformen.ch). Der Energiemonitor ist kein Produkt, sondern eine offene Plattform zum Nachbauen. Einstieg, Bauanleitung und Glossar: [energiemonitor-docs](https://github.com/Verein-Kleinwohnformen/energiemonitor-docs).
 
