@@ -1,6 +1,6 @@
 {
     "name": "@vereinkleinwohnformen/node-red-energiemonitor",
-    "version": "0.4.2",
+    "version": "0.5.0",
     "description": "Energy monitor connector to the KWF databases",
     "dependencies": {
         "better-sqlite3": "^11.9.1",

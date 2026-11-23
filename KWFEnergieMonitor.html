@@ -17,14 +17,26 @@
             name: { value: 'KWF Datenbank Connector' },
             sqlitePath: { value: '/data/node-red/' },
             sendInterval: { value: 3600000},
-            apiURL: { value: '${KWF_API}' },
-            apiKey: { value: '${KWF_KEY}' }
+            apiURL: { value: '${KWF_URL}' }
+        },
+        // Der Device-Key ist ein Credential: Node-RED speichert ihn verschluesselt
+        // in flows_cred.json, nie in flows.json. Leer = Balena-Variable KWF_KEY.
+        credentials: {
+            apiKey: { type: 'password' }
         },
         inputs: 1,
         outputs: 0,
         icon: "font-awesome/fa-database",
         label: function () {
             return this.name || 'KWF Datenbank Connector';
+        },
+        oneditprepare: function () {
+            // Alte Versionen (bis 0.4.x) speicherten den Key als normales Feld.
+            // Einen direkt eingetragenen Key ins Credential uebernehmen.
+            const legacy = this.apiKey;
+            if (legacy && !/^\$\{\w+\}$/.test(legacy) && !$('#node-input-apiKey').val()) {
+                $('#node-input-apiKey').val(legacy);
+            }
         }
     });
 </script>
@@ -41,8 +53,8 @@
 </div>
 
 <div class="form-row">
-    <label for="node-input-apiKey"><i class="fa fa-key"></i> API Key</label>
-    <input type="text" id="node-input-apiKey" placeholder="Enter API Key" required>
+    <label for="node-input-apiKey"><i class="fa fa-key"></i> Device-Key</label>
+    <input type="password" id="node-input-apiKey" placeholder="leer lassen: Balena-Variable KWF_KEY">
 </div>
 
 <div class="form-row">
@@ -112,7 +124,7 @@
     <ul>
         <li><strong>SQLite Path:</strong> Pfad für lokale Datenspeicherung</li>
         <li><strong>API URL:</strong> KWF-Datenbank-Endpunkt</li>
-        <li><strong>API Key:</strong> Authentifizierung für KWF-Datenbank</li>
+        <li><strong>Device-Key:</strong> Schlüssel des Geräts für die API. Leer lassen, dann gilt die Balena-Variable <code>KWF_KEY</code> (empfohlen). Ein hier eingetragener Key wird verschlüsselt gespeichert (<code>flows_cred.json</code>), nie in <code>flows.json</code>.</li>
         <li><strong>Send Interval:</strong> Übertragungsintervall in Millisekunden</li>
     </ul>
 
